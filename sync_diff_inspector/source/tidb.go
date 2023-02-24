@@ -126,7 +126,20 @@ func (s *TiDBSource) GetCountAndCrc32(ctx context.Context, tableRange *splitter.
 	chunk := tableRange.GetChunk()
 
 	matchSource := getMatchSource(s.sourceTableMap, table)
-	count, checksum, err := utils.GetCountAndCRC32Checksum(ctx, s.dbConn, matchSource.OriginSchema, matchSource.OriginTable, table.Info, chunk.Where, chunk.Args)
+	log.Debug("Getting count and CRC-32 checksum.",
+		zap.String("table-name", matchSource.OriginTable),
+		zap.Any("table-indices", table.Info.Indices),
+		zap.Int("index-id", int(tableRange.IndexID)),
+		zap.Any("args", chunk.Args))
+
+	var index *model.IndexInfo
+	for _, idx := range table.Info.Indices {
+		if idx.ID == tableRange.IndexID {
+			index = idx
+			break
+		}
+	}
+	count, checksum, err := utils.GetCountAndCRC32Checksum(ctx, s.dbConn, matchSource.OriginSchema, matchSource.OriginTable, table.Info, chunk.Where, chunk.Args, index)
 
 	cost := time.Since(beginTime)
 	return &ChecksumInfo{
